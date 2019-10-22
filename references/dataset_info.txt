@@ -123,3 +123,9 @@ PhoneID Android Device Android Ver. UserID
 23 Transformer TF101 4.0.3 2
 24 bq Curie 4.1.1 12
 ----------------------------------------------
+
+NOTES:
+
+
+Latitude and longitude are in Transverse Mercator projection and use WGS84/UTM
+coordinate reference system (EPSG:4326)

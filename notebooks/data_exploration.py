@@ -1,14 +1,17 @@
 #%% Importing and setting styles
 
-import pandas as pd
-import numpy as np
-import sklearn
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-import seaborn as sns
 import os
+import random
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import pyproj
+import seaborn as sns
+import sklearn
 from dotenv import find_dotenv, load_dotenv
 from IPython.core.interactiveshell import InteractiveShell
+from mpl_toolkits.mplot3d import Axes3D
 
 # Setting styles
 InteractiveShell.ast_node_interactivity = "all"
@@ -21,10 +24,12 @@ raw_path = os.path.join("data", "raw")
 data_train = pd.read_csv(os.path.join(raw_path, "trainingData.csv"))
 data_test = pd.read_csv(os.path.join(raw_path, "validationData.csv"))
 
+data = pd.concat([data_train, data_test], ignore_index=True)
+
 #%% [markdown]
 
-# The datasets are not very big, but they have a lot of columns
-# Train and test set have all the same columns?
+# * The datasets are not very big, but they have a lot of columns.
+# * Train and test set have all the same columns
 
 #%%
 
@@ -34,39 +39,31 @@ print("Test set size:", len(data_test))
 data_train.head()
 data_test.head()
 
-#%% [markdown]
-
-
-#%%
-
 data_train.dtypes
 print("Do train and test datatypes match?", all(data_train.dtypes == data_test.dtypes))
 
 
 #%% [markdown]
 
-# Lets look at the columns that start WAP
-
-# 520 different column but no missing values
+# * There are 520 different WAP columns
+# * These columns have no missing values
+# * Missing values (lack of any connection) is coded as 100
+# and these values are very common for the WiFi stations
 
 #%%
 
 wap_columns = [column for column in data_train.columns if "WAP" in column]
 print("the amount of WAP columns:", len(wap_columns))
-sum(data_train[wap_columns].isnull().sum())
-sum(data_train[wap_columns].isnull().sum())
+print("missing values in train set:", sum(data_train[wap_columns].isnull().sum()))
+print("missing values in test set:", sum(data_test[wap_columns].isnull().sum()))
 
-# wap_corr_train = np.corrcoef(data_train[wap_columns])
-# sns.heatmap(wap_corr_train)
-# wap_corr_test = np.corrcoef(data_test[wap_columns])
-# sns.heatmap(wap_corr_test)
+is100 = data == 100
+data[wap_columns].where(is100).count(axis="rows").hist(bins=100)
 
 
 #%% [markdown]
 
-# Non-WAP columns are 9
-
-# Don't contain missing values, but 100 is a missing signal
+# * There are 9 non-WAP columns
 
 # columns BUILDINGID, SPACEID, USERID and PHONEID need to made categorical
 # Floor is okay as an integer because it has a natural ordering
@@ -86,8 +83,6 @@ data_test[non_wap_columns].isnull().sum()
 for column in non_wap_columns:
     data_train[column].value_counts()
 
-#%%
-
 cat_columns = ["BUILDINGID", "SPACEID", "USERID", "PHONEID"]
 for column in cat_columns:
     data_train[column] = data_train[column].astype("category")
@@ -96,12 +91,12 @@ for column in cat_columns:
 
 #%% [markdown]
 
-# Users are not defined in the testset so using them as features is not advisable
+# * Users are not defined in the testset so using them as features is not advisable
 
-# There are phones with ID:s that are not represented in the test set and vice versa.
+# * There are phones with ID:s that are not represented in the test set and vice versa.
 # This makes this also very hard to use as a feature
 
-# Timestamp is useless also by the way
+# * Timestamp is useless also by the way
 
 #%%
 
@@ -117,56 +112,80 @@ for column in cat_columns:
 
 #%% [markdown]
 
-# What is the distribution of signals from wap-columns?
+# * The latitude and longitude are in projection that puts them
+# in an angle. This could mess up with the models because this
+# means that depenging on the direction of the error it might count
+# for more or less
+# * We need to fix the projection!
 
 #%%
 
-for column in wap_columns[:100]:
-    try:
-        sns.kdeplot(data_test[column], color="lightgrey", legend=False)
-    except:
-        print("Column {} could not be plotted".format(column))
-
-plt.show()
-
-
-#%% [markdown]
-
-# TODO: Should the coordinates be "straightened" to get good readings?
-
-data_train["connection_strength"] = (
-    data_train[wap_columns].replace(100, np.nan).sum(axis=1)
-)
-#%%
-
-for floor in sorted(data_train["FLOOR"].unique()):
+for floor in sorted(data_train["FLOOR"].unique()[:1]):
 
     sns.set(rc={"figure.figsize": (11.7, 8.27)})
     sns.scatterplot(
         x="LATITUDE",
         y="LONGITUDE",
-        hue="connection_strength",
-        data=data_train,
-        alpha=0.5,
+        hue="BUILDINGID",
+        data=data_train[data_train.FLOOR == floor],
     )
     plt.title("Floor number: {}".format(floor))
     plt.show()
 
+
+#%% [markdown]
+
+# * Changing the projection so that we are looking from straight up.
+# * As the original projection is in WGS84/UTL we just convert this to
+# geodesic projection with pyproj
+# * Only building 2 has a fourth floor, but the connection to building 1
+# also counts
+
 #%%
 
-data_train = data_train.assign(
-    x=np.cos(data_train.LATITUDE) * np.cos(data_train.LONGITUDE)
+crs = pyproj.CRS.from_epsg(4326)
+projection = pyproj.Transformer.from_crs(crs, crs.geodetic_crs)
+
+for row in range(len(data_train)):
+    data_train.at[row, "lat"] = projection.transform(
+        data_train["LONGITUDE"][row], data_train["LATITUDE"][row]
+    )[0]
+    data_train.at[row, "lon"] = projection.transform(
+        data_train["LONGITUDE"][row], data_train["LATITUDE"][row]
+    )[1]
+
+
+for floor in sorted(data_train["FLOOR"].unique()):
+
+    sns.set(rc={"figure.figsize": (11.7, 8.27)})
+    sns.scatterplot(
+        x="lat", y="lon", hue="BUILDINGID", data=data_train[data_train.FLOOR == floor]
+    )
+    plt.title("Floor number: {}".format(floor))
+    plt.show()
+
+#%% [markdown]
+
+# the WiFi connection points are usually only noticeable from
+# one building, but this is not always the case
+
+# Connection strength does not follow super clear patterns, but the
+# farther points usually have a worse connection.
+
+# There are some WiFi connection points that do not have any readings
+# in the dataset
+
+#%%
+
+data_train["connection_strength"] = (
+    data_train[wap_columns].replace(100, np.nan).sum(axis=1)
 )
-data_train = data_train.assign(
-    y=np.cos(data_train.LATITUDE) * np.sin(data_train.LONGITUDE)
-)
-data_train = data_train.assign(z=np.sin(data_train.LATITUDE))
 
-#%%
-
-data_train["building"] = data_train["BUILDINGID"].astype(int)
-sns.set(rc={"figure.figsize": (11.7, 8.27)})
-sns.scatterplot(x="x", y="y", hue="building", data=data_train)
-plt.show()
-
-#%%
+for column in random.sample(wap_columns, k=5):
+    sns.set(rc={"figure.figsize": (11.7, 8.27)})
+    sns.scatterplot(
+        x="lat", y="lon", hue=data_train[column].replace(100, np.nan), data=data_train
+    )
+    plt.title(column)
+    plt.axis("equal")
+    plt.show()
