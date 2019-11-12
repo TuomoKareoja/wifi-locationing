@@ -102,3 +102,6 @@ target/
 
 # Some of the articles are not open source so not including them in the repo
 /references/articles/
+
+# catboost
+/catboost_info/*
