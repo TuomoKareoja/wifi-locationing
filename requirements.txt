@@ -13,6 +13,8 @@ sklearn
 matplotlib
 seaborn
 flake8
+xgboost
+catboost
+tpot
 python-dotenv>=0.5.1
 jupyter
-pyproj

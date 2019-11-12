@@ -3,10 +3,12 @@ import logging
 import os
 from pathlib import Path
 
+import matplotlib.pyplot as plt
+import seaborn as sns
 import click
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
-from src.data.clean_data import change_projection_to_overhead
+from src.data.clean_data import change_projection
 
 
 @click.command()
@@ -37,13 +39,10 @@ def main(input_filepath, output_filepath):
     logger.info("Making all columns lowercase for easier typing")
     df.columns = [column.lower() for column in df.columns]
 
-    logger.info("Changing remaining ID columns to categorical")
-    cat_columns = ["buildingid", "spaceid"]
+    logger.info("Changing building ID to categorical")
+    cat_columns = ["buildingid"]
     for column in cat_columns:
         df[column] = df[column].astype("category")
-
-    logger.info("Changing the projection so that we look straight from above")
-    df = change_projection_to_overhead(df, lat="latitude", lon="longitude")
 
     logger.info("Saving to data/processed")
     df_train = df[df.train]
