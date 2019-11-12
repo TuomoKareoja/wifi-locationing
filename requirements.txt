@@ -10,6 +10,7 @@ black
 numpy
 jupyter
 sklearn
+bayesian-optimization
 matplotlib
 seaborn
 flake8
