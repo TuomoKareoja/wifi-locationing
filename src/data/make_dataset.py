@@ -28,8 +28,10 @@ def main(input_filepath, output_filepath):
     df_test["train"] = False
     df = pd.concat([df_train, df_test], ignore_index=True)
 
-    logger.info("Dropping unnecessary columns")
-    columns_to_drop = ["RELATIVEPOSITION", "USERID", "PHONEID", "TIMESTAMP"]
+    logger.info(
+        "Dropping unnecessary columns not available in the validation set (all null)"
+    )
+    columns_to_drop = ["RELATIVEPOSITION", "USERID", "PHONEID", "TIMESTAMP", "SPACEID"]
     df.drop(columns=columns_to_drop, inplace=True)
 
     logger.info("Making all columns lowercase for easier typing")

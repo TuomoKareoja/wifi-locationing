@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import pyproj
 
 
 def change_projection_to_overhead(df, lat, lon):
@@ -13,8 +14,6 @@ def change_projection_to_overhead(df, lat, lon):
     :return: Dataframe with changed projection
     :rtype: dataframe
     """
-
-    import pyproj
 
     crs = pyproj.CRS.from_epsg(4326)
     projection = pyproj.Transformer.from_crs(crs, crs.geodetic_crs)
@@ -38,8 +37,6 @@ def change_projection_to_original(df, lat, lon):
     :return: Dataframe with original projection
     :rtype: [type]
     """
-
-    import pyproj
 
     crs = pyproj.CRS.from_epsg(4326)
     projection = pyproj.Transformer.from_crs(crs.geodetic_crs, crs)
