@@ -3,7 +3,6 @@
 import os
 
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 import seaborn as sns
 from IPython.core.interactiveshell import InteractiveShell
@@ -24,13 +23,22 @@ random_state = 123
 df = pd.read_csv(os.path.join("data", "processed", "train.csv"))
 df = df.drop(columns=["train"])
 
+df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
+df_valid = df_valid.drop(columns=["train"])
+
 # %%
 
-X = df.drop(columns=["longitude", "latitude", "buildingid", "floor"])
+X = df.drop(columns=["longitude", "latitude", "floor"])
 y_lon = df.longitude
 y_lat = df.latitude
-y_building = df.buildingid
 y_floor = df.floor
+y = pd.DataFrame({"lon": y_lon, "lat": y_lat, "floor": y_floor})
+
+X_valid = df_valid.drop(columns=["longitude", "latitude", "floor"])
+y_valid_lon = df_valid.longitude
+y_valid_lat = df_valid.latitude
+y_valid_floor = df_valid.floor
+y_valid = pd.DataFrame({"lon": y_valid_lon, "lat": y_valid_lat, "floor": y_valid_floor})
 
 # %%
 
@@ -39,7 +47,7 @@ X_train, X_test, y_train_lon, y_test_lon = train_test_split(
     y_lon,
     test_size=0.2,
     random_state=random_state,
-    stratify=df[["longitude", "latitude", "buildingid", "floor"]],
+    stratify=df[["buildingid", "floor"]],
 )
 
 _, _, y_train_lat, y_test_lat = train_test_split(
@@ -47,15 +55,7 @@ _, _, y_train_lat, y_test_lat = train_test_split(
     y_lat,
     test_size=0.2,
     random_state=random_state,
-    stratify=df[["longitude", "latitude", "buildingid", "floor"]],
-)
-
-_, _, y_train_building, y_test_building = train_test_split(
-    X,
-    y_building,
-    test_size=0.2,
-    random_state=random_state,
-    stratify=df[["longitude", "latitude", "buildingid", "floor"]],
+    stratify=df[["buildingid", "floor"]],
 )
 
 _, _, y_train_floor, y_test_floor = train_test_split(
@@ -63,26 +63,12 @@ _, _, y_train_floor, y_test_floor = train_test_split(
     y_floor,
     test_size=0.2,
     random_state=random_state,
-    stratify=df[["longitude", "latitude", "buildingid", "floor"]],
+    stratify=df[["buildingid", "floor"]],
 )
 
-y_train = pd.DataFrame(
-    {
-        "lon": y_train_lon,
-        "lat": y_train_lat,
-        "building": y_train_building,
-        "floor": y_train_floor,
-    }
-)
+y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
 
-y_test = pd.DataFrame(
-    {
-        "lon": y_test_lon,
-        "lat": y_test_lat,
-        "building": y_test_building,
-        "floor": y_test_floor,
-    }
-)
+y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
 
 # %%
 
@@ -90,7 +76,7 @@ y_test = pd.DataFrame(
 def calculate_distance(y, y_pred):
     pred_lon = y_pred[:, 0]
     pred_lat = y_pred[:, 1]
-    pred_floor = y_pred[:, 3]
+    pred_floor = y_pred[:, 2]
 
     lon_diff2 = (pred_lon - y.lon) ** 2
     lat_diff2 = (pred_lat - y.lat) ** 2
@@ -117,107 +103,102 @@ knn_model_robust_scaler = Pipeline(
     [("scaler", RobustScaler()), ("knn", KNeighborsRegressor())]
 )
 
-
 # %% Optimizing hyperparameters
 
-models = [knn_model_no_scaling, knn_model_standard_scaler, knn_model_robust_scaler]
-model_names = ["no_scaling", "standard_scaler", "robust_scaler"]
+# models = [knn_model_no_scaling, knn_model_standard_scaler, knn_model_robust_scaler]
 
-param_grid = {
-    "knn__n_neighbors": [1, 2, 3],
-    "knn__weights": ["uniform", "distance"],
-    "knn__p": [1, 2],
-}
+# model_names = ["no_scaling", "standard_scaler", "robust_scaler"]
 
-results = {}
-for name, model in zip(model_names, models):
-    param_search = GridSearchCV(
-        model, param_grid, scoring=distance_scorer, n_jobs=-2, cv=8, verbose=2
-    )
+# param_grid = {
+#     "knn__n_neighbors": [1, 2, 3],
+#     "knn__weights": ["uniform", "distance"],
+#     "knn__p": [1, 2],
+# }
 
-    param_search.fit(X_train, y_train)
-    print(name)
-    print("Best Params:")
-    print(param_search.best_params_)
-    print("Best CV Score:")
-    print(-param_search.best_score_)
+# results = {}
+# for name, model in zip(model_names, models):
+#     param_search = GridSearchCV(
+#         model, param_grid, scoring=distance_scorer, n_jobs=-2, cv=8, verbose=2
+#     )
+
+#     param_search.fit(X_train, y_train)
+#     print(name)
+#     print("Best Params:")
+#     print(param_search.best_params_)
+#     print("Best CV Score:")
+#     print(-param_search.best_score_)
 
 # no_scaling
 # Best Params:
 # {'knn__n_neighbors': 1, 'knn__p': 1, 'knn__weights': 'uniform'}
 # Best CV Score:
-# 3.5139507486916415
+# 2.3362376640738565
 
 # standard_scaler
 # Best Params:
-# {'knn__n_neighbors': 1, 'knn__p': 1, 'knn__weights': 'uniform'}
+# {'knn__n_neighbors': 2, 'knn__p': 1, 'knn__weights': 'distance'}
 # Best CV Score:
-# 3.8178876723905137
+# 2.577258493818289
 
 # robust_scaler
 # Best Params:
 # {'knn__n_neighbors': 1, 'knn__p': 1, 'knn__weights': 'uniform'}
 # Best CV Score:
-# 3.5139507486916415
+# 2.3362376640738565
 
-# %%
+# %% Training the best (and simplest model)
 
-knn_model_no_scaling.fit(X_train, y_train)
+knn_model = KNeighborsRegressor(n_neighbors=1, p=1, weights="uniform")
+knn_model.fit(X, y)
 
-# %%
+pred = knn_model.predict(X_valid)
 
-knn_model_standard_scaler.fit(X_train, y_train)
+score = calculate_distance(y_valid, pred)
 
-# %%
-
-knn_model_robust_scaler.fit(X_train, y_train)
-
-# %%
-
-
-# %%
-
-knn_model_no_scaling_score = calculate_distance(
-    knn_model_no_scaling, X_test=X_test, y_test=y_test
-)
-knn_model_standard_scaler_score = calculate_distance(
-    knn_model_standard_scaler, X_test=X_test, y_test=y_test
-)
-knn_model_robust_scaler_score = calculate_distance(
-    knn_model_robust_scaler, X_test=X_test, y_test=y_test
-)
-
-# %%
-
-print(knn_model_no_scaling_score)
-print(knn_model_standard_scaler_score)
-print(knn_model_robust_scaler_score)
-
-# %%
-
-pred = knn_model.predict(X_test)
 pred_lon = pred[:, 0]
 pred_lat = pred[:, 1]
-pred_building = pred[:, 2]
-pred_floor = pred[:, 3]
+pred_floor = pred[:, 2]
+
+lon_diff2 = (pred_lon - y_valid_lon) ** 2
+lat_diff2 = (pred_lat - y_valid_lat) ** 2
+# lets assume that the height of the floors is 5 meters
+floor_diff2 = ((pred_floor - y_valid_floor) * 5) ** 2
+
+distance_squared = lon_diff2 + lat_diff2 + floor_diff2
+
+distance = distance_squared.apply(lambda x: x ** (1 / 2))
 
 predictions = pd.DataFrame(
-    {"LATITUDE": pred_lat, "LONGITUDE": pred_lon, "FLOOR": pred_floor}
+    {
+        "LATITUDE": pred_lat,
+        "LONGITUDE": pred_lon,
+        "FLOOR": pred_floor,
+        "distance": distance,
+    }
 )
 
 true_values = pd.DataFrame(
-    {"LATITUDE": y_test_lat, "LONGITUDE": y_test_lon, "FLOOR": y_test_floor}
+    {
+        "LATITUDE": y_valid_lat,
+        "LONGITUDE": y_valid_lon,
+        "FLOOR": y_valid_floor,
+        "distance": distance,
+    }
 )
 
 # %%
+
+print(f"Mean error in meters {score}")
 
 for floor in sorted(predictions.FLOOR.unique()):
     fig, ax = plt.subplots()
     sns.scatterplot(
         x="LONGITUDE",
         y="LATITUDE",
-        data=predictions[predictions["FLOOR"] == int(floor)],
+        hue="distance",
         ax=ax,
+        s=100,
+        data=predictions[predictions["FLOOR"] == int(floor)],
     )
     ax.set_aspect(aspect="equal")
     plt.title(f"Predictions Floor {int(floor)}")
@@ -227,6 +208,8 @@ for floor in sorted(predictions.FLOOR.unique()):
     sns.scatterplot(
         x="LONGITUDE",
         y="LATITUDE",
+        hue="distance",
+        s=100,
         data=true_values[true_values["FLOOR"] == int(floor)],
         ax=ax,
     )
@@ -235,4 +218,6 @@ for floor in sorted(predictions.FLOOR.unique()):
     plt.show()
 
 
-# %%
+# %% distribution of the errors
+
+predictions.distance.hist(bins=100)
