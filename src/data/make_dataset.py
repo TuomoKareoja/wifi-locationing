@@ -3,8 +3,6 @@ import logging
 import os
 from pathlib import Path
 
-import matplotlib.pyplot as plt
-import seaborn as sns
 import click
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
