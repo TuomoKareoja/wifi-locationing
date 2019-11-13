@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from sklearn.neighbors import LocalOutlierFactor
 from IPython.core.interactiveshell import InteractiveShell
 
 # Setting styles
@@ -113,14 +114,14 @@ for column in cat_columns:
 # %%
 
 data_train["connection_strength"] = (
-    data_train[wap_columns].replace(100, np.nan).sum(axis=1)
+    data_train[wap_columns].replace(100, -105).sum(axis=1)
 )
 
 for column in random.sample(wap_columns, k=5):
     sns.set(rc={"figure.figsize": (11.7, 8.27)})
     sns.scatterplot(
-        x="LATITUDE",
-        y="LONGITUDE",
+        y="LATITUDE",
+        x="LONGITUDE",
         hue=data_train[column].replace(100, np.nan),
         data=data_train,
     )
@@ -128,6 +129,168 @@ for column in random.sample(wap_columns, k=5):
     plt.axis("equal")
     plt.show()
 
-# %% [markdown]
+# %% {markdown}
 
-# # Distribution of the signal strength
+# # Users
+
+# %% User count and observations per user
+
+print("Number of unique users in the training data:", data_train.USERID.nunique())
+data_train.USERID.value_counts().plot(kind="bar")
+
+
+# %% Signal distribution per user
+
+for user in sorted(data_train.USERID.drop_duplicates()):
+    sns.kdeplot(data_train[(data_train.USERID == user)].connection_strength, label=user)
+plt.show()
+
+# Users 7 and 16 seem to have comparatively high values in the right tail
+
+# %% Signal distribution per user and building
+
+for building in sorted(data_train.BUILDINGID.drop_duplicates()):
+    for user in sorted(data_train.USERID.drop_duplicates()):
+        sns.kdeplot(
+            data_train[
+                (data_train.USERID == user) & (data_train.BUILDINGID == building)
+            ].connection_strength,
+            label=user,
+        )
+        plt.title(building)
+    plt.show()
+
+# The tail values that we saw with students are all in building 1
+
+# %% Where are the most extreme measures located?
+
+for building in sorted(data_train.BUILDINGID.drop_duplicates()):
+    sns.set(rc={"figure.figsize": (14.7, 11.27)})
+    sns.scatterplot(
+        y="LATITUDE",
+        x="LONGITUDE",
+        size="connection_strength",
+        hue="connection_strength",
+        style="USERID",
+        markers=(
+            "o",
+            "v",
+            "^",
+            "<",
+            ">",
+            "8",
+            "s",
+            "p",
+            "*",
+            "h",
+            "H",
+            "D",
+            "d",
+            "P",
+            "X",
+            "o",
+            "v",
+        ),
+        sizes=(40, 200),
+        data=data_train[data_train.BUILDINGID == building],
+    )
+    plt.title(f"Building {building}")
+    plt.axis("equal")
+    plt.show()
+
+# %% Who made the observations
+
+for building in sorted(data_train.BUILDINGID.drop_duplicates()):
+    sns.set(rc={"figure.figsize": (14.7, 11.27)})
+    sns.scatterplot(
+        y="LATITUDE",
+        x="LONGITUDE",
+        hue="USERID",
+        style="USERID",
+        markers=(
+            "o",
+            "v",
+            "^",
+            "<",
+            ">",
+            "8",
+            "s",
+            "p",
+            "*",
+            "h",
+            "H",
+            "D",
+            "d",
+            "P",
+            "X",
+            "o",
+            "v",
+        ),
+        s=150,
+        alpha=0.2,
+        palette=sns.color_palette(
+            "husl", data_train[data_train.BUILDINGID == building].USERID.nunique()
+        ),
+        data=data_train[data_train.BUILDINGID == building],
+    )
+    plt.title(f"Building {building}")
+    plt.axis("equal")
+    plt.show()
+
+# The high values seem to be part of pattern and don't seem to be out of place
+
+# %% Trying to find outliers with LOF
+
+lof = LocalOutlierFactor(n_neighbors=3, n_jobs=3)
+outliers = lof.fit_predict(X=data_train[wap_columns])
+
+data_train["outlier"] = np.where(outliers == -1, 1, 0)
+
+# %% The percent of observations outliers by user
+
+print("outlier rate:", data_train["outlier"].mean())
+data_train.groupby(["USERID"])["outlier"].mean().plot(kind="bar")
+
+
+# %%
+
+for building in sorted(data_train.BUILDINGID.drop_duplicates()):
+    sns.set(rc={"figure.figsize": (14.7, 11.27)})
+    sns.scatterplot(
+        y="LATITUDE",
+        x="LONGITUDE",
+        hue="USERID",
+        style="USERID",
+        markers=(
+            "o",
+            "v",
+            "^",
+            "<",
+            ">",
+            "8",
+            "s",
+            "p",
+            "*",
+            "h",
+            "H",
+            "D",
+            "d",
+            "P",
+            "X",
+            "o",
+            "v",
+        ),
+        palette=sns.color_palette(
+            "husl",
+            data_train[
+                (data_train.BUILDINGID == building) & (data_train.outlier == 1)
+            ].USERID.nunique(),
+        ),
+        s=150,
+        data=data_train[
+            (data_train.BUILDINGID == building) & (data_train.outlier == 1)
+        ],
+    )
+    plt.title(f"Building {building}")
+    plt.axis("equal")
+    plt.show()
