@@ -8,7 +8,6 @@ import seaborn as sns
 import click
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
-from src.data.clean_data import change_projection
 
 
 @click.command()
@@ -39,10 +38,12 @@ def main(input_filepath, output_filepath):
     logger.info("Making all columns lowercase for easier typing")
     df.columns = [column.lower() for column in df.columns]
 
-    logger.info("Changing building ID to categorical")
-    cat_columns = ["buildingid"]
-    for column in cat_columns:
-        df[column] = df[column].astype("category")
+    logger.info(
+        "Changing missing values of WAP column from 100 to -110 (lower than weakest \
+        signal)"
+    )
+    wap_columns = [column for column in df.columns if "wap" in column]
+    df[wap_columns] = df[wap_columns].replace(100, -110)
 
     logger.info("Saving to data/processed")
     df_train = df[df.train]
