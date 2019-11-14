@@ -143,7 +143,14 @@ data_train.USERID.value_counts().plot(kind="bar")
 
 for user in sorted(data_train.USERID.drop_duplicates()):
     sns.kdeplot(data_train[(data_train.USERID == user)].connection_strength, label=user)
+plt.xlim(-55000, -52000)
 plt.show()
+
+for user in sorted(data_train.USERID.drop_duplicates()):
+    sns.kdeplot(data_train[(data_train.USERID == user)].connection_strength, label=user)
+    plt.title(f"User Number {user}")
+    plt.xlim(-55000, -52000)
+    plt.show()
 
 # Users 7 and 16 seem to have comparatively high values in the right tail
 
@@ -252,7 +259,7 @@ print("outlier rate:", data_train["outlier"].mean())
 data_train.groupby(["USERID"])["outlier"].mean().plot(kind="bar")
 
 
-# %%
+# %% Outliers from local outlier factor by building
 
 for building in sorted(data_train.BUILDINGID.drop_duplicates()):
     sns.set(rc={"figure.figsize": (14.7, 11.27)})
@@ -294,3 +301,53 @@ for building in sorted(data_train.BUILDINGID.drop_duplicates()):
     plt.title(f"Building {building}")
     plt.axis("equal")
     plt.show()
+
+
+# %% operating systems
+
+# coding the os from the information from dataset_info
+os_dict = {
+    0: "4.0.4",
+    1: "2.3.8",
+    2: "4.1.0",
+    3: "4.0.5",
+    4: "4.1.0",
+    5: "4.2.0",
+    6: "2.3.7",
+    7: "2.3.6",
+    8: "4.2.2",
+    9: "4.3",
+    10: "2.3.5",
+    11: "4.1.2",
+    12: "4.2.0",
+    13: "2.3.5",
+    14: "4.0.4",
+    15: "4.1.0",
+    16: "4.0.3",
+    17: "4.0.4",
+    18: "2.3.4",
+    19: "4.2.6",
+    20: "4 4.0",
+    21: "4.1.0",
+    22: "2.3.5",
+    23: "4.0.2",
+    24: "4.1.1",
+}
+
+data_train["os"] = data_train["PHONEID"].replace(os_dict)
+data_train["os_base"] = data_train["os"].str[0:3]
+
+
+# %%
+
+print("outlier rate:", data_train["outlier"].mean())
+data_train.groupby(["os"])["outlier"].mean().plot(kind="bar")
+plt.title("Outlier rate by OS")
+plt.show()
+data_train.groupby(["os_base"])["outlier"].mean().plot(kind="bar")
+plt.title("Outlier rate by OS")
+plt.show()
+
+# %%
+
+data_train.groupby(["USERID", "os"])["outlier"].mean().plot(kind="bar")
