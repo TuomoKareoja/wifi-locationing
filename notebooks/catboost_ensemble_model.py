@@ -19,10 +19,11 @@ random_state = 123
 # %%
 
 df = pd.read_csv(os.path.join("data", "processed", "train.csv"))
-df = df.drop(columns=["train"])
+df = df.drop(columns=["train", "relativeposition", "spaceid"])
 
 df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
-df_valid = df_valid.drop(columns=["train"])
+df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
+
 
 # %%
 

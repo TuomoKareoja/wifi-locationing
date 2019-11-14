@@ -20,10 +20,19 @@ random_state = 123
 # %%
 
 df = pd.read_csv(os.path.join("data", "processed", "train.csv"))
-df = df.drop(columns=["train", "relativeposition", "spaceid"])
+df = df.drop(columns=["train"])
 
 df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
-df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
+df_valid = df_valid.drop(columns=["train", "spaceid", "relativeposition"])
+
+# %% grouping the training data by location
+
+# this drops the amount of datapoints by 95 %
+df = df.groupby(
+    ["buildingid", "floor", "spaceid", "relativeposition"], as_index=False
+).mean()
+
+df.drop(columns=["spaceid", "relativeposition"], inplace=True)
 
 # %%
 
@@ -66,6 +75,7 @@ _, _, y_train_floor, y_test_floor = train_test_split(
 )
 
 y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
+
 y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
 
 # %%
@@ -112,7 +122,7 @@ param_grid = {
 knn_model = KNeighborsRegressor()
 
 param_search = GridSearchCV(
-    knn_model, param_grid, scoring=distance_scorer, n_jobs=-2, cv=10, verbose=2
+    knn_model, param_grid, scoring=distance_scorer, n_jobs=-2, cv=100, verbose=2
 )
 
 param_search.fit(X_train, y_train)
@@ -135,7 +145,7 @@ score = calculate_distance(y_valid, pred)
 pred_lon = pred[:, 0]
 pred_lat = pred[:, 1]
 # in case the neighbors is > 1 then we need to make sure that floor is int
-pred_floor = np.round(pred[:, 2], decimals=0)
+pred_floor = np.around(pred[:, 2], decimals=0)
 
 lon_diff2 = (pred_lon - y_valid_lon) ** 2
 lat_diff2 = (pred_lat - y_valid_lat) ** 2

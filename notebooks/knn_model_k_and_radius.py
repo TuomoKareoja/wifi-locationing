@@ -8,6 +8,7 @@ import pandas as pd
 import seaborn as sns
 from IPython.core.interactiveshell import InteractiveShell
 from sklearn.metrics import make_scorer
+from sklearn.base import BaseEstimator
 from sklearn.model_selection import GridSearchCV, train_test_split
 from sklearn.neighbors import KNeighborsRegressor
 
@@ -66,6 +67,7 @@ _, _, y_train_floor, y_test_floor = train_test_split(
 )
 
 y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
+
 y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
 
 # %%
@@ -90,6 +92,76 @@ def calculate_distance(y, y_pred):
 
 distance_scorer = make_scorer(calculate_distance, greater_is_better=False)
 
+# %% Implementing a mix of k-kmeans and radius means
+
+
+class kradius(BaseEstimator):
+    def __init__(
+        self, metric="minkowski", weights="uniform", n_neighbors=3, radius=1.0, n_jobs=1
+    ):
+        self.radius = radius
+        self.metric = metric
+        self.weights = weights
+        self.n_neighbors = n_neighbors
+        self.n_jobs = n_jobs
+
+    def fit(self, X, y):
+        self.knn_model = KNeighborsRegressor(
+            n_neighbors=self.n_neighbors,
+            n_jobs=self.n_jobs,
+            weights=self.weights,
+            metric=self.metric,
+        )
+        self.knn_model.fit(X, y)
+        return self
+
+    def predict(self, X):
+
+        # no need to to distance filtering if we take only 1 neighbor
+        if self.n_neighbors > 1:
+
+            _y = self.knn_model._y
+
+            dists, inds = self.knn_model.kneighbors(X, n_neighbors=self.n_neighbors)
+            # dropping value where distance too big
+            # we always keep the closest point (first value)
+            dists = [dist for dist, _ in zip(dists, inds)]
+            inds = [ind for _, ind in zip(dists, inds)]
+
+            weights = self.knn_model._get_weights(dists, self.weights)
+
+            empty_obs = np.full_like(_y[0], np.nan)
+
+            if weights is None:
+                y_pred = np.array(
+                    [
+                        np.mean(_y[ind, :], axis=0) if len(ind) else empty_obs
+                        for (i, ind) in enumerate(inds)
+                    ]
+                )
+
+            else:
+                y_pred = np.array(
+                    [
+                        np.average(_y[ind, :], axis=0, weights=weights[i])
+                        if len(ind)
+                        else empty_obs
+                        for (i, ind) in enumerate(inds)
+                    ]
+                )
+
+            return y_pred
+
+        else:
+            return self.knn_model.predict(X)
+
+
+# %%
+
+kradius_model = kradius(n_jobs=3)
+kradius_model.fit(X_test, y_test)
+preds = kradius_model.predict(X_test)
+
 
 # %% Optimizing hyperparameters
 
@@ -104,12 +176,13 @@ def squared_distance(weights):
 
 
 param_grid = {
-    "n_neighbors": [1, 2, 3],
-    "weights": ["uniform", "distance", squared_distance],
-    "metric": ["euclidean", "manhattan", "chebyshev"],
+    "n_neighbors": [1],
+    "radius": [1, 2],
+    # "weights": ["uniform", "distance", squared_distance],
+    # "metric": ["euclidean", "manhattan", "chebyshev"],
 }
 
-knn_model = KNeighborsRegressor()
+knn_model = kradius()
 
 param_search = GridSearchCV(
     knn_model, param_grid, scoring=distance_scorer, n_jobs=-2, cv=10, verbose=2
@@ -123,6 +196,11 @@ print(-param_search.best_score_)
 
 best_params = param_search.best_params_
 
+# Best Params:
+# {'knn__n_neighbors': 1, 'knn__p': 1, 'knn__weights': 'uniform'}
+# Best CV Score:
+# 2.3362376640738565
+
 # %% Training the model with full data and optimized hyperparameters
 
 knn_model = KNeighborsRegressor(**best_params)
@@ -134,8 +212,7 @@ score = calculate_distance(y_valid, pred)
 
 pred_lon = pred[:, 0]
 pred_lat = pred[:, 1]
-# in case the neighbors is > 1 then we need to make sure that floor is int
-pred_floor = np.round(pred[:, 2], decimals=0)
+pred_floor = pred[:, 2]
 
 lon_diff2 = (pred_lon - y_valid_lon) ** 2
 lat_diff2 = (pred_lat - y_valid_lat) ** 2
@@ -199,6 +276,3 @@ for floor in sorted(predictions.FLOOR.unique()):
 # %% distribution of the errors
 
 predictions.distance.hist(bins=100)
-
-
-# %%

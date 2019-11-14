@@ -9,7 +9,7 @@ import seaborn as sns
 from IPython.core.interactiveshell import InteractiveShell
 from sklearn.metrics import make_scorer
 from sklearn.model_selection import GridSearchCV, train_test_split
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import KNeighborsRegressor, LocalOutlierFactor
 
 # Setting styles
 InteractiveShell.ast_node_interactivity = "all"
@@ -20,10 +20,24 @@ random_state = 123
 # %%
 
 df = pd.read_csv(os.path.join("data", "processed", "train.csv"))
-df = df.drop(columns=["train", "relativeposition", "spaceid"])
 
 df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
 df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
+
+# %%
+
+lof = LocalOutlierFactor(n_neighbors=3, n_jobs=3)
+wap_columns = [column for column in df.columns if "wap" in column]
+outliers = lof.fit_predict(X=df[wap_columns])
+df["outlier"] = np.where(outliers == -1, 1, 0)
+
+# if the location has one or more non-outlier values drop outliers
+df["n_outliers"] = df.groupby(["buildingid", "floor", "spaceid", "relativeposition"])[
+    "outlier"
+].transform("mean")
+df.query("n_outliers == 1 or outlier == 0", inplace=True)
+
+df = df.drop(columns=["train", "relativeposition", "spaceid", "outlier", "n_outliers"])
 
 # %%
 
@@ -66,6 +80,7 @@ _, _, y_train_floor, y_test_floor = train_test_split(
 )
 
 y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
+
 y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
 
 # %%
@@ -199,6 +214,3 @@ for floor in sorted(predictions.FLOOR.unique()):
 # %% distribution of the errors
 
 predictions.distance.hist(bins=100)
-
-
-# %%
