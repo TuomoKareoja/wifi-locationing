@@ -39,6 +39,20 @@ data_test.head()
 data_train.dtypes
 print("Do train and test datatypes match?", all(data_train.dtypes == data_test.dtypes))
 
+# %% [markdown]
+
+# # Check for Duplicates
+#
+# * There are 637 duplicated observations in the training set. Removing these
+# * No duplicates in the validation set
+
+# %%
+
+print("Number of duplicates in the training set", data_train.duplicated().sum())
+data_train = data_train[~data_train.duplicated()]
+print("Number of duplicates after cleaning", data_train.duplicated().sum())
+print("Number of duplicates in the validation set", data_test.duplicated().sum())
+
 
 # %% [markdown]
 

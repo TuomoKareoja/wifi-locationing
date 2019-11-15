@@ -27,6 +27,9 @@ def main(input_filepath, output_filepath):
     df_test["train"] = False
     df = pd.concat([df_train, df_test], ignore_index=True)
 
+    logger.info("Removing duplicates (some in the training set)")
+    df = df_train[df.duplicated()]
+
     logger.info(
         "Dropping unnecessary columns not available in the validation set (all null)"
     )
