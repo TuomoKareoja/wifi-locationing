@@ -28,7 +28,7 @@ def main(input_filepath, output_filepath):
     df = pd.concat([df_train, df_test], ignore_index=True)
 
     logger.info("Removing duplicates (some in the training set)")
-    df = df_train[df.duplicated()]
+    df = df[~df.duplicated()]
 
     logger.info(
         "Dropping unnecessary columns not available in the validation set (all null)"
@@ -40,8 +40,7 @@ def main(input_filepath, output_filepath):
     df.columns = [column.lower() for column in df.columns]
 
     logger.info(
-        "Changing missing values of WAP column from 100 to -110 (lower than weakest \
-        signal)"
+        "Changing missing values of WAP column from 100 to -110 (weaker than all signals)"
     )
     wap_columns = [column for column in df.columns if "wap" in column]
     df[wap_columns] = df[wap_columns].replace(100, -110)
