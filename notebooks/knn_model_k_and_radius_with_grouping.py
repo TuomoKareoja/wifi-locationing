@@ -1,6 +1,5 @@
 # %%
 
-import copy
 import os
 
 import matplotlib.pyplot as plt
@@ -22,10 +21,19 @@ random_state = 123
 # %%
 
 df = pd.read_csv(os.path.join("data", "processed", "train.csv"))
-df = df.drop(columns=["train", "relativeposition", "spaceid"])
+df = df.drop(columns=["train"])
 
 df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
-df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
+df_valid = df_valid.drop(columns=["train", "spaceid", "relativeposition"])
+
+# %% grouping the training data by location
+
+# this drops the amount of datapoints by 95 %
+df = df.groupby(
+    ["buildingid", "floor", "spaceid", "relativeposition"], as_index=False
+).mean()
+
+df.drop(columns=["spaceid", "relativeposition"], inplace=True)
 
 # %%
 
@@ -68,7 +76,6 @@ _, _, y_train_floor, y_test_floor = train_test_split(
 )
 
 y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
-
 y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
 
 # %%
@@ -123,7 +130,7 @@ def _get_weights(dist, weights):
 
 class kradius(BaseEstimator):
     def __init__(
-        self, metric="minkowski", weights="uniform", n_neighbors=3, radius=1.0, n_jobs=1
+        self, metric="euclidean", weights="uniform", n_neighbors=3, radius=1.0, n_jobs=1
     ):
         self.radius = radius
         self.metric = metric
@@ -234,8 +241,8 @@ def squared_distance(weights):
 
 metric_opt = ["euclidean", "manhattan"]
 weights_opt = ["uniform"]
-n_neighbors_opt = range(2, 5)
-radius_opt = np.arange(1, 20, step=1)
+n_neighbors_opt = range(1, 6)
+radius_opt = np.arange(120, 200, step=1)
 
 best_score = None
 for metric in metric_opt:
@@ -246,6 +253,7 @@ for metric in metric_opt:
                 radius_opt_modified = [1]
             else:
                 radius_opt_modified = radius_opt.copy()
+
             for radius in radius_opt_modified:
                 kradius_model = kradius(
                     metric=metric,
@@ -255,7 +263,7 @@ for metric in metric_opt:
                     n_jobs=1,
                 )
                 cv_val_scores = cross_val_score(
-                    kradius_model, X=X, y=y, scoring=distance_scorer, cv=3, n_jobs=-2
+                    kradius_model, X=X, y=y, scoring=distance_scorer, cv=5, n_jobs=-2
                 )
                 score = -cv_val_scores.mean()
                 print()
@@ -272,8 +280,8 @@ for metric in metric_opt:
                         "radius": radius,
                     }
 
+
 print(best_params)
-# {'metric': 'manhattan', 'weights': 'uniform', 'n_neighbors': 1, 'radius': 1}
 
 # %% Training the model with full data and optimized hyperparameters
 
