@@ -83,6 +83,9 @@ target/
 !/data/processed/.gitkeep
 !/data/predictions/.gitkeep
 
+# exclude trained models as knn models are so big
+/models
+!/models/.gitkeep
 
 # Mac OS-specific storage files
 .DS_Store
