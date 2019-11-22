@@ -25,7 +25,15 @@ requirements: test_environment
 
 ## Make Dataset
 data: requirements
-	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
+	$(PYTHON_INTERPRETER) src/data/make_dataset.py
+	
+## Train 3 best models
+train:
+	$(PYTHON_INTERPRETER) src/models/make_train.py
+	
+## make prediction with 3 best models
+predict:
+	$(PYTHON_INTERPRETER) src/models/make_predict.py data/processed/test.csv
 
 ## Delete all compiled Python files
 clean:
