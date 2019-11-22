@@ -24,28 +24,20 @@ df = df.drop(columns=["train", "relativeposition", "spaceid"])
 df_valid = pd.read_csv(os.path.join("data", "processed", "test.csv"))
 df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
 
-
 # %%
 
-X = df.drop(columns=["longitude", "latitude", "floor", "buildingid"])
-y = pd.DataFrame(
-    {
-        "lon": df.longitude,
-        "lat": df.latitude,
-        "floor": df.floor,
-        "building": df.buildingid,
-    }
-)
+X = df.drop(columns=["longitude", "latitude", "buildingid", "floor"])
+y_lon = df.longitude
+y_lat = df.latitude
+y_building = df.buildingid
+y_floor = df.floor
 
-X_valid = df_valid.drop(columns=["longitude", "latitude", "floor", "buildingid"])
-y_valid = pd.DataFrame(
-    {
-        "lon": df_valid.longitude,
-        "lat": df_valid.latitude,
-        "floor": df_valid.floor,
-        "building": df_valid.buildingid,
-    }
-)
+X_valid = df_valid.drop(columns=["longitude", "latitude", "buildingid", "floor"])
+y_valid_lon = df_valid.longitude
+y_valid_lat = df_valid.latitude
+y_valid_building = df_valid.buildingid
+y_valid_floor = df_valid.floor
+
 
 # %% level 1 models
 
@@ -65,21 +57,55 @@ catboost_floor_level1 = CatBoostClassifier(
     loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
 )
 
-# %% Longitude
+param_grid = {"depth": [4, 6, 10], "l2_leaf_reg": [1, 3, 5, 7, 9]}
 
-catboost_lon_level1.fit(X, y.lon)
+# %% Longitude optimization
 
-# %% Latitude
+grid_search_results = catboost_lon_level1.grid_search(
+    param_grid, X=X, y=y_lon, shuffle=False, verbose=3
+)
+catboost_lon_level1_params = grid_search_results["params"]
+print(catboost_lon_level1_params)
+# catboost_lon_level1_params = {'depth': 4, 'l2_leaf_reg': 1}
+# catboost_lon_level1.grid_search(param_grid=catboost_lon_level1_params, X=X, y=y_lon)
 
-catboost_lat_level1.fit(X, y.lat)
+# %% Latitude optimization
 
-# %% Buildings
+grid_search_results = catboost_lat_level1.grid_search(
+    param_grid, X=X, y=y_lat, shuffle=False, verbose=3
+)
+catboost_lat_level1_params = grid_search_results["params"]
+print(catboost_lat_level1_params)
+# catboost_lat_level1_params = {'depth': 4, 'l2_leaf_reg': 1}
+# catboost_lat_level1.grid_search(param_grid=catboost_lat_level1_params, X=X, y=y_lat)
 
-catboost_building_level1.fit(X, y.building)
+# %% Buildings optimization
 
-# %% Floors
+grid_search_results = catboost_building_level1.grid_search(
+    param_grid, X=X, y=y_building, shuffle=False, verbose=3
+)
+catboost_building_level1_params = grid_search_results["params"]
+print(catboost_building_level1_params)
+# catboost_building_level1_params = {'depth': 10, 'l2_leaf_reg': 1}
+# catboost_building_level1.grid_search(
+#     param_grid=catboost_building_level1_params, X=X, y=y_building
+# )
 
-catboost_floor_level1.fit(X, y.floor)
+# %% Floors optimization
+
+grid_search_results = catboost_floor_level1.grid_search(
+    param_grid, X=X, y=y_floor, shuffle=False, verbose=3
+)
+catboost_floor_level1_params = grid_search_results["params"]
+print(catboost_floor_level1_params)
+# catboost_floor_level1_params = {
+#     "depth": [6],
+#     "l2_leaf_reg": [1],
+#     "learning_rate": [0.1],
+# }
+# catboost_floor_level1.grid_search(
+#     param_grid=catboost_floor_level1_params, X=X, y=y_floor
+# )
 
 # %% Predicting with models
 
@@ -188,22 +214,54 @@ catboost_floor_level2 = CatBoostClassifier(
     loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
 )
 
-# %% Longitude
+# %% Longitude optimization
 
-catboost_lon_level2.fit(X_lon, y.lon)
+grid_search_results = catboost_lon_level2.grid_search(
+    param_grid, X=X_lon, y=y_lon, shuffle=False, verbose=3
+)
+catboost_lon_level2_params = grid_search_results["params"]
+print(catboost_lon_level2_params)
+# catboost_lon_level2_params = {"depth": [4], "l2_leaf_reg": [1], "learning_rate": [0.1]}
+# catboost_lon_level2.grid_search(param_grid=catboost_lon_level2_params, X=X, y=y_lon)
 
-# %% Latitude
+# %% Latitude optimization
 
-catboost_lat_level2.fit(X_lat, y.lat)
+grid_search_results = catboost_lat_level2.grid_search(
+    param_grid, X=X_lat, y=y_lat, shuffle=False, verbose=3
+)
+catboost_lat_level2_params = grid_search_results["params"]
+print(catboost_lat_level2_params)
+# catboost_lat_level2_params = {"depth": [4], "l2_leaf_reg": [1], "learning_rate": [0.1]}
+# catboost_lat_level2.grid_search(param_grid=catboost_lat_level2_params, X=X, y=y_lat)
 
-# %% Buildings
+# %% Buildings optimization
 
-catboost_building_level2.fit(X_building, y.building)
+grid_search_results = catboost_building_level2.grid_search(
+    param_grid, X=X_building, y=y_building, shuffle=False, verbose=3
+)
+catboost_building_level2_params = grid_search_results["params"]
+print(catboost_building_level2_params)
+# catboost_building_level2_params = {
+#     "depth": [8],
+#     "l2_leaf_reg": [1],
+#     "learning_rate": [0.1],
+# }
+# catboost_building_level2.grid_search(
+#     param_grid=catboost_building_level2_params, X=X, y=y_building
+# )
 
-# %% Floors
+# %% Floors optimization
 
-catboost_floor_level2.fit(X_floor, y.floor)
+grid_search_results = catboost_floor_level2.grid_search(
+    param_grid, X=X_floor, y=y_floor, shuffle=False, verbose=3
+)
+catboost_floor_level2_params = grid_search_results["params"]
+print(catboost_floor_level2_params)
 
+# catboost_floor_level2_params = {"depth": 6, "l2_leaf_reg": 1, "learning_rate": 0.1}
+# catboost_floor_level2.grid_search(
+#     param_grid=catboost_floor_level2_params, X=X, y=y_floor
+# )
 
 # %% Predicting with models
 
@@ -284,49 +342,73 @@ catboost_lat_comb = CatBoostRegressor(
     loss_function="RMSE", eval_metric="RMSE", random_state=random_state
 )
 
+# no need to predict the building
 catboost_floor_comb = CatBoostClassifier(
     loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
 )
 
-catboost_building_comb = CatBoostClassifier(
-    loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
-)
+param_grid = {
+    "learning_rate": [0.03, 0.1],
+    "depth": [4, 6, 10],
+    "l2_leaf_reg": [1, 3, 5, 7, 9],
+}
 
 # %% Longitude combination model
 
-catboost_lon_comb.fit(X_comb, y.lon)
+# grid_search_results = catboost_lon_comb.grid_search(
+#     param_grid, X=X_comb, y=y_lon, shuffle=False, verbose=3
+# )
+# catboost_lon_comb_params = grid_search_results["params"]
+# print(catboost_lon_comb_params)
+
+catboost_lon_comb_params = {"depth": 4, "l2_leaf_reg": 1, "learning_rate": 0.03}
+catboost_lon_comb.grid_search(
+    catboost_lon_comb_params, X=X_comb, y=y_lon, shuffle=False, verbose=3
+)
 
 # %% Latitude combination model
 
-catboost_lat_comb.fit(X_comb, y.lat)
+grid_search_results = catboost_lat_comb.grid_search(
+    param_grid, X=X_comb, y=y_lat, shuffle=False, verbose=3
+)
+catboost_lat_comb_params = grid_search_results["params"]
+print(catboost_lat_comb_params)
+
+# catboost_lon_comb_params = {"depth": 4, "l2_leaf_reg": 1, "learning_rate": 0.03}
+# catboost_lon_comb.grid_search(
+#     catboost_lon_comb_params, X=X_comb, y=y_lat, shuffle=False, verbose=3
+# )
 
 # %% Floor combination model
 
-catboost_floor_comb.fit(X_comb, y.floor)
+grid_search_results = catboost_floor_comb.grid_search(
+    param_grid, X=X_comb, y=y_floor, shuffle=False, verbose=3
+)
+catboost_floor_comb_params = grid_search_results["params"]
+print(catboost_floor_level2_params)
 
-# %% Building combination model
-
-catboost_building_comb.fit(X_comb, y.building)
+# catboost_floor_comb_params = {"depth": 4, "l2_leaf_reg": 1, "learning_rate": 0.03}
+# catboost_floor_comb.grid_search(
+#     catboost_floor_comb_params, X=X_comb, y=y_floor, shuffle=False, verbose=3
+# )
 
 # %% Predicting with combination models
 
 pred_lon = catboost_lon_comb.predict(X_valid_comb)
 pred_lat = catboost_lat_comb.predict(X_valid_comb)
 pred_floor = np.hstack(catboost_floor_comb.predict(X_valid_comb))
-pred_building = np.hstack(catboost_building_comb.predict(X_valid_comb))
 
-distance = (
-    np.absolute(pred_lon - y_valid.lon)
-    + np.absolute(pred_lat - y_valid.lat)
-    + 4 * np.absolute(pred_floor - y_valid.floor)
-    + 50 * np.absolute(pred_building - y_valid.building)
-)
+lon_diff2 = (pred_lon - y_valid_lon) ** 2
+lat_diff2 = (pred_lat - y_valid_lat) ** 2
+# lets assume that the height of the floors is 5 meters
+floor_diff2 = ((pred_floor - y_valid_floor) * 5) ** 2
 
-score = np.mean(distance)
-lon_score = np.mean(np.absolute(pred_lon - y_valid.lon))
-lat_score = np.mean(np.absolute(pred_lat - y_valid.lat))
-right_floor = np.round(np.mean(pred_floor == y_valid.floor) * 100, 2)
-right_building = np.round(np.mean(pred_building == y_valid.building) * 100, 2)
+distance_squared = lon_diff2 + lat_diff2 + floor_diff2
+
+distance = distance_squared.apply(lambda x: x ** (1 / 2))
+
+score = distance.mean()
+
 
 predictions = pd.DataFrame(
     {
@@ -339,9 +421,9 @@ predictions = pd.DataFrame(
 
 true_values = pd.DataFrame(
     {
-        "LATITUDE": y_valid.lat,
-        "LONGITUDE": y_valid.lon,
-        "FLOOR": y_valid.floor,
+        "LATITUDE": y_valid_lat,
+        "LONGITUDE": y_valid_lon,
+        "FLOOR": y_valid_floor,
         "distance": distance,
     }
 )
@@ -349,11 +431,7 @@ true_values = pd.DataFrame(
 
 # %%
 
-print(f"Mean error in distance75: {score}")
-print(f"Latitude error: {lat_score}")
-print(f"Longitude error: {lon_score}")
-print(f"Floors correct: {right_floor} %")
-print(f"Building correct: {right_building} %")
+print(f"Mean error in meters {score}")
 
 for floor in sorted(predictions.FLOOR.unique()):
     fig, ax = plt.subplots()

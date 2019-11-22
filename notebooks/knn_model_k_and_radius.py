@@ -1,6 +1,5 @@
 # %%
 
-import copy
 import os
 
 import matplotlib.pyplot as plt
@@ -10,8 +9,10 @@ import seaborn as sns
 from IPython.core.interactiveshell import InteractiveShell
 from sklearn.base import BaseEstimator
 from sklearn.metrics import make_scorer
-from sklearn.model_selection import cross_val_score, train_test_split
+from sklearn.model_selection import cross_val_score, KFold
 from sklearn.neighbors import KNeighborsRegressor
+
+from src.models.scoring import distance75
 
 # Setting styles
 InteractiveShell.ast_node_interactivity = "all"
@@ -30,48 +31,25 @@ df_valid = df_valid.drop(columns=["train", "relativeposition", "spaceid"])
 # %%
 
 X = df.drop(columns=["longitude", "latitude", "floor", "buildingid"])
-y_lon = df.longitude
-y_lat = df.latitude
-y_floor = df.floor
-y = pd.DataFrame({"lon": y_lon, "lat": y_lat, "floor": y_floor})
+y = pd.DataFrame(
+    {
+        "lon": df.longitude,
+        "lat": df.latitude,
+        "floor": df.floor,
+        "building": df.buildingid,
+    }
+)
 
 X_valid = df_valid.drop(columns=["longitude", "latitude", "floor", "buildingid"])
-y_valid_lon = df_valid.longitude
-y_valid_lat = df_valid.latitude
-y_valid_floor = df_valid.floor
-y_valid = pd.DataFrame({"lon": y_valid_lon, "lat": y_valid_lat, "floor": y_valid_floor})
-
-# %%
-
-X_train, X_test, y_train_lon, y_test_lon = train_test_split(
-    X,
-    y_lon,
-    test_size=0.2,
-    random_state=random_state,
-    stratify=df[["buildingid", "floor"]],
+y_valid = pd.DataFrame(
+    {
+        "lon": df_valid.longitude,
+        "lat": df_valid.latitude,
+        "floor": df_valid.floor,
+        "building": df_valid.buildingid,
+    }
 )
 
-_, _, y_train_lat, y_test_lat = train_test_split(
-    X,
-    y_lat,
-    test_size=0.2,
-    random_state=random_state,
-    stratify=df[["buildingid", "floor"]],
-)
-
-_, _, y_train_floor, y_test_floor = train_test_split(
-    X,
-    y_floor,
-    test_size=0.2,
-    random_state=random_state,
-    stratify=df[["buildingid", "floor"]],
-)
-
-y_train = pd.DataFrame({"lon": y_train_lon, "lat": y_train_lat, "floor": y_train_floor})
-
-y_test = pd.DataFrame({"lon": y_test_lon, "lat": y_test_lat, "floor": y_test_floor})
-
-# %%
 # %% Implementing a mix of k-kmeans and radius means by modifying sklearn
 
 
@@ -204,38 +182,17 @@ class kradius(BaseEstimator):
 
 
 def calculate_distance(y, y_pred):
-    pred_lon = y_pred[:, 0]
-    pred_lat = y_pred[:, 1]
-    pred_floor = y_pred[:, 2]
-
-    lon_diff2 = (pred_lon - y.lon) ** 2
-    lat_diff2 = (pred_lat - y.lat) ** 2
-    # lets assume that the height of the floors is 5 meters
-    floor_diff2 = ((pred_floor - y.floor) * 5) ** 2
-
-    distance_squared = lon_diff2 + lat_diff2 + floor_diff2
-
-    mean_distance = distance_squared.apply(lambda x: x ** (1 / 2)).mean()
-
-    return mean_distance
+    distance = distance75(y, y_pred)
+    return np.mean(distance)
 
 
 distance_scorer = make_scorer(calculate_distance, greater_is_better=False)
 
 
-def squared_distance(weights):
-    # replacing zero values with machine epsilon
-    weights[weights == 0] = np.finfo(float).eps
-    weights = [
-        (1 / weights_obs ** 2) / np.sum(1 / weights_obs ** 2) for weights_obs in weights
-    ]
-    return weights
-
-
 metric_opt = ["euclidean", "manhattan"]
 weights_opt = ["uniform"]
 n_neighbors_opt = range(2, 5)
-radius_opt = np.arange(1, 20, step=1)
+radius_opt = np.arange(2, 5, step=1)
 
 best_score = None
 for metric in metric_opt:
@@ -254,8 +211,18 @@ for metric in metric_opt:
                     radius=radius,
                     n_jobs=1,
                 )
+
+                # there might be some inherent order in the dataset
+                # so shuffling to get rid of this
+                folds = KFold(n_splits=3, shuffle=True, random_state=random_state)
+
                 cv_val_scores = cross_val_score(
-                    kradius_model, X=X, y=y, scoring=distance_scorer, cv=3, n_jobs=-2
+                    kradius_model,
+                    X=X,
+                    y=y,
+                    scoring=distance_scorer,
+                    cv=folds,
+                    n_jobs=-2,
                 )
                 score = -cv_val_scores.mean()
                 print()
@@ -273,7 +240,6 @@ for metric in metric_opt:
                     }
 
 print(best_params)
-# {'metric': 'manhattan', 'weights': 'uniform', 'n_neighbors': 1, 'radius': 1}
 
 # %% Training the model with full data and optimized hyperparameters
 
@@ -286,16 +252,15 @@ score = calculate_distance(y_valid, pred)
 
 pred_lon = pred[:, 0]
 pred_lat = pred[:, 1]
-pred_floor = pred[:, 2]
+pred_floor = np.round(pred[:, 2], decimals=0)
+pred_building = np.round(pred[:, 3], decimals=0)
 
-lon_diff2 = (pred_lon - y_valid_lon) ** 2
-lat_diff2 = (pred_lat - y_valid_lat) ** 2
-# lets assume that the height of the floors is 5 meters
-floor_diff2 = ((pred_floor - y_valid_floor) * 5) ** 2
-
-distance_squared = lon_diff2 + lat_diff2 + floor_diff2
-
-distance = distance_squared.apply(lambda x: x ** (1 / 2))
+distance = distance75(y_valid, pred)
+score = np.mean(distance)
+lon_score = np.mean(np.absolute(pred_lon - y_valid.lon))
+lat_score = np.mean(np.absolute(pred_lat - y_valid.lat))
+right_floor = np.round(np.mean(pred_floor == y_valid.floor) * 100, 2)
+right_building = np.round(np.mean(pred_building == y_valid.building) * 100, 2)
 
 predictions = pd.DataFrame(
     {
@@ -308,16 +273,20 @@ predictions = pd.DataFrame(
 
 true_values = pd.DataFrame(
     {
-        "LATITUDE": y_valid_lat,
-        "LONGITUDE": y_valid_lon,
-        "FLOOR": y_valid_floor,
+        "LATITUDE": y_valid.lat,
+        "LONGITUDE": y_valid.lon,
+        "FLOOR": y_valid.floor,
         "distance": distance,
     }
 )
 
 # %%
 
-print(f"Mean error in meters {score}")
+print(f"Mean error in distance75: {score}")
+print(f"Latitude error: {lat_score}")
+print(f"Longitude error: {lon_score}")
+print(f"Floors correct: {right_floor} %")
+print(f"Building correct: {right_building} %")
 
 for floor in sorted(predictions.FLOOR.unique()):
     fig, ax = plt.subplots()
@@ -350,6 +319,5 @@ for floor in sorted(predictions.FLOOR.unique()):
 # %% distribution of the errors
 
 predictions.distance.hist(bins=100)
-
 
 # %%
