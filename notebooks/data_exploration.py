@@ -365,3 +365,96 @@ plt.show()
 # %%
 
 data_train.groupby(["USERID", "os"])["outlier"].mean().plot(kind="bar")
+
+# %% Signal distribution
+
+wap_melt = pd.melt(
+    data_train,
+    id_vars=["USERID", "PHONEID", "BUILDINGID", "FLOOR"],
+    value_vars=wap_columns,
+)
+
+# change wap to numeric
+wap_melt["variable"] = wap_melt["variable"].str.replace("WAP", "").astype(int)
+
+# %%
+
+sns.scatterplot(
+    x="variable",
+    y="value",
+    alpha=0.1,
+    data=wap_melt[wap_melt["value"] != 100].sample(100000),
+    palette="gist_rainbow",
+)
+plt.show()
+
+# %%
+
+sns.scatterplot(
+    x="variable",
+    y="value",
+    hue="USERID",
+    alpha=0.1,
+    data=wap_melt[wap_melt["value"] != 100].sample(100000),
+    palette="gist_rainbow",
+)
+plt.show()
+# %%
+
+
+sns.scatterplot(
+    x="variable",
+    y="value",
+    hue="PHONEID",
+    alpha=0.1,
+    data=wap_melt[wap_melt["value"] != 100].sample(100000),
+    palette="gist_rainbow",
+)
+plt.show()
+# %%
+
+
+sns.scatterplot(
+    x="variable",
+    y="value",
+    hue="BUILDINGID",
+    alpha=0.1,
+    data=wap_melt[wap_melt["value"] != 100].sample(100000),
+    palette="gist_rainbow",
+)
+plt.show()
+
+# %%
+
+sns.scatterplot(
+    x="variable",
+    y="value",
+    hue="FLOOR",
+    alpha=0.1,
+    data=wap_melt[wap_melt["value"] != 100].sample(100000),
+    palette="gist_rainbow",
+)
+plt.show()
+
+# %%
+
+columns = ["PHONEID", "BUILDINGID", "USERID", "FLOOR"]
+
+for column in columns:
+    for unique_value in wap_melt[column].drop_duplicates():
+        sns.kdeplot(
+            wap_melt[(wap_melt["value"] != 100) & (wap_melt[column] == unique_value)][
+                "value"
+            ],
+            label=unique_value,
+        )
+    plt.legend()
+    plt.title(column)
+    plt.show()
+
+
+# %%
+
+
+# %%
+
