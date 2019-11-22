@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-import os
-import pickle
-
 import numpy as np
 import pandas as pd
 from sklearn.base import BaseEstimator
@@ -47,8 +44,7 @@ def train_knn_grouping(train_data_path, metric, n_neighbors, weights):
     model = KNeighborsRegressor(**params)
     model.fit(X, y)
 
-    filename = "knn_grouping_model.p"
-    pickle.dump(model, open(os.path.join("models", filename), "wb"))
+    return model
 
 
 def train_k_and_radius(
@@ -71,13 +67,7 @@ def train_k_and_radius(
     model = kradius(**params)
     model.fit(X, y)
 
-    # save the model to disk
-    if extra_data_path:
-        filename = "k_and_radius_model_full_data.p"
-    else:
-        filename = "k_and_radius_model.p"
-
-    pickle.dump(model, open(os.path.join("models", filename), "wb"))
+    return model
 
 
 # Implementing a mix of k-kmeans and radius means by modifying sklearn

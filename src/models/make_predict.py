@@ -60,7 +60,7 @@ def main(predict_data_path, with_full_data):
         orig_df[model_name + "_building"] = pred_building
 
     logger.info("Saving to data/predictions")
-    orig_df.to_csv(os.path.join("data", 'predictions', "predictions.csv"))
+    orig_df.to_csv(os.path.join("data", "predictions", "predictions.csv"))
 
 
 if __name__ == "__main__":

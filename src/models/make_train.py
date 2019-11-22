@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
 import os
+import pickle
 from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
+
 from src.models.train_model import train_k_and_radius, train_knn_grouping
 
 
@@ -15,20 +17,26 @@ def main():
     logger.info("Training best models")
 
     logger.info("training k and radius model with training data")
-    train_k_and_radius(
+    k_and_radius_model = train_k_and_radius(
         os.path.join("data", "processed", "train.csv"),
         metric="manhattan",
         weights="uniform",
         n_neighbors=3,
         radius=2,
     )
+    pickle.dump(
+        k_and_radius_model, open(os.path.join("models", "k_and_radius_model.p"), "wb")
+    )
 
     logger.info("training knn grouping model (can only use training data)")
-    train_knn_grouping(
+    knn_grouping_model = train_knn_grouping(
         os.path.join("data", "processed", "train.csv"),
         metric="euclidean",
         n_neighbors=2,
         weights="squared_distance",
+    )
+    pickle.dump(
+        knn_grouping_model, open(os.path.join("models", "knn_grouping_model.p"), "wb")
     )
 
 
