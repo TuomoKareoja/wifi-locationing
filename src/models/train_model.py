@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
+import pickle
+
 import numpy as np
 import pandas as pd
+from catboost import CatBoostClassifier, CatBoostRegressor
 from sklearn.base import BaseEstimator
 from sklearn.neighbors import KNeighborsRegressor
 
@@ -203,3 +206,140 @@ def squared_distance(weights):
         (1 / weights_obs ** 2) / np.sum(1 / weights_obs ** 2) for weights_obs in weights
     ]
     return weights
+
+
+def train_and_save_catboost_ensemble(train_data_path, model_save_path, random_state):
+
+    X, y = load_data(train_data_path)
+
+    catboost_lon_level1 = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_lat_level1 = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_building_level1 = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_floor_level1 = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_lon_level1.fit(X, y.lon)
+    catboost_lat_level1.fit(X, y.lat)
+    catboost_building_level1.fit(X, y.building)
+    catboost_floor_level1.fit(X, y.floor)
+
+    pred_lon = catboost_lon_level1.predict(X)
+    pred_lat = catboost_lat_level1.predict(X)
+    pred_buildings = catboost_building_level1.predict_proba(X)
+    pred_floors = catboost_floor_level1.predict_proba(X)
+
+    X_comb = combine_predictions(pred_lon, pred_lat, pred_buildings, pred_floors)
+
+    X_lon = pd.concat([X, X_comb], axis="columns").drop(columns=["lon"])
+    X_lat = pd.concat([X, X_comb], axis="columns").drop(columns=["lat"])
+    X_building = pd.concat([X, X_comb], axis="columns").drop(
+        columns=["building0", "building1", "building2"]
+    )
+    X_floor = pd.concat([X, X_comb], axis="columns").drop(
+        columns=["floor0", "floor1", "floor2", "floor3", "floor4"]
+    )
+
+    catboost_lon_level2 = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_lat_level2 = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_building_level2 = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_floor_level2 = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_lon_level2.fit(X_lon, y.lon)
+    catboost_lat_level2.fit(X_lat, y.lat)
+    catboost_building_level2.fit(X_building, y.building)
+    catboost_floor_level2.fit(X_floor, y.floor)
+
+    pred_lon = catboost_lon_level2.predict(X_lon)
+    pred_lat = catboost_lat_level2.predict(X_lat)
+    pred_buildings = catboost_building_level2.predict_proba(X_building)
+    pred_floors = catboost_floor_level2.predict_proba(X_floor)
+
+    X_comb = combine_predictions(pred_lon, pred_lat, pred_buildings, pred_floors)
+
+    catboost_lon_comb = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_lat_comb = CatBoostRegressor(
+        loss_function="RMSE", eval_metric="RMSE", random_state=random_state
+    )
+
+    catboost_floor_comb = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_building_comb = CatBoostClassifier(
+        loss_function="MultiClass", eval_metric="MultiClass", random_state=random_state
+    )
+
+    catboost_lon_comb.fit(X_comb, y.lon)
+    catboost_lat_comb.fit(X_comb, y.lat)
+    catboost_floor_comb.fit(X_comb, y.floor)
+    catboost_building_comb.fit(X_comb, y.building)
+
+    model_dict = {
+        "catboost_lon_level1": catboost_lon_level1,
+        "catboost_lat_level1": catboost_lat_level1,
+        "catboost_building_level1": catboost_building_level1,
+        "catboost_floor_level1": catboost_floor_level1,
+        "catboost_lon_level2": catboost_lon_level2,
+        "catboost_lat_level2": catboost_lat_level2,
+        "catboost_building_level2": catboost_building_level2,
+        "catboost_floor_level2": catboost_floor_level2,
+        "catboost_lon_comb": catboost_lon_comb,
+        "catboost_lat_comb": catboost_lat_comb,
+        "catboost_building_comb": catboost_building_comb,
+        "catboost_floor_comb": catboost_floor_comb,
+    }
+
+    pickle.dump(model_dict, open(model_save_path, "wb"))
+
+
+def combine_predictions(pred_lon, pred_lat, pred_buildings, pred_floors):
+
+    pred_building0 = pred_buildings[:, 0]
+    pred_building1 = pred_buildings[:, 1]
+    pred_building2 = pred_buildings[:, 2]
+    pred_floor0 = pred_floors[:, 0]
+    pred_floor1 = pred_floors[:, 1]
+    pred_floor2 = pred_floors[:, 2]
+    pred_floor3 = pred_floors[:, 3]
+    pred_floor4 = pred_floors[:, 4]
+
+    X_comb = pd.DataFrame(
+        {
+            "lon": pred_lon,
+            "lat": pred_lat,
+            "building0": pred_building0,
+            "building1": pred_building1,
+            "building2": pred_building2,
+            "floor0": pred_floor0,
+            "floor1": pred_floor1,
+            "floor2": pred_floor2,
+            "floor3": pred_floor3,
+            "floor4": pred_floor4,
+        }
+    )
+
+    return X_comb

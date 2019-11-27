@@ -6,7 +6,13 @@ from pathlib import Path
 
 from dotenv import find_dotenv, load_dotenv
 
-from src.models.train_model import train_k_and_radius, train_knn_grouping
+from src.models.train_model import (
+    train_k_and_radius,
+    train_knn_grouping,
+    train_and_save_catboost_ensemble,
+)
+
+random_state = 123
 
 
 def main():
@@ -18,7 +24,7 @@ def main():
 
     logger.info("training k and radius model with training data")
     k_and_radius_model = train_k_and_radius(
-        os.path.join("data", "processed", "train.csv"),
+        train_data_path=os.path.join("data", "processed", "train.csv"),
         metric="manhattan",
         weights="uniform",
         n_neighbors=3,
@@ -30,13 +36,20 @@ def main():
 
     logger.info("training knn grouping model (can only use training data)")
     knn_grouping_model = train_knn_grouping(
-        os.path.join("data", "processed", "train.csv"),
+        train_data_path=os.path.join("data", "processed", "train.csv"),
         metric="euclidean",
         n_neighbors=2,
         weights="squared_distance",
     )
     pickle.dump(
         knn_grouping_model, open(os.path.join("models", "knn_grouping_model.p"), "wb")
+    )
+
+    logger.info("training catboost ensemble model")
+    knn_grouping_model = train_and_save_catboost_ensemble(
+        train_data_path=os.path.join("data", "processed", "train.csv"),
+        model_save_path=os.path.join("models", "catboost_ensemble_model_dict.p"),
+        random_state=random_state,
     )
 
 

@@ -9,11 +9,12 @@ import numpy as np
 import pandas as pd
 from dotenv import find_dotenv, load_dotenv
 
+from src.models.predict_model import predict_catboost_ensemble
+
 
 @click.command()
 @click.argument("predict_data_path", type=click.Path(exists=True))
-@click.argument("with_full_data", default=False, type=bool)
-def main(predict_data_path, with_full_data):
+def main(predict_data_path):
     """Predict with models saved in ./models
     """
     logger = logging.getLogger(__name__)
@@ -29,14 +30,9 @@ def main(predict_data_path, with_full_data):
     X = X[wap_columns]
 
     logger.info("Predicting with k and radius model")
-    if with_full_data:
-        k_and_radius_model = pickle.load(
-            open(os.path.join("models", "k_and_radius_model_full_data.p"), "rb")
-        )
-    else:
-        k_and_radius_model = pickle.load(
-            open(os.path.join("models", "k_and_radius_model.p"), "rb")
-        )
+    k_and_radius_model = pickle.load(
+        open(os.path.join("models", "k_and_radius_model.p"), "rb")
+    )
     k_and_radius_preds = k_and_radius_model.predict(X)
 
     logger.info("Predicting with knn grouped model")
@@ -45,9 +41,18 @@ def main(predict_data_path, with_full_data):
     )
     knn_grouping_preds = knn_grouping_model.predict(X)
 
+    logger.info("Predicting with catboost ensemble model")
+    catboost_ensemble_model_dict = pickle.load(
+        open(os.path.join("models", "catboost_ensemble_model_dict.p"), "rb")
+    )
+    catboost_ensemble_preds = predict_catboost_ensemble(
+        X, **catboost_ensemble_model_dict
+    )
+
     logger.info("Adding predictions to predicted data as new columns")
     for model_name, preds in zip(
-        ["k_and_radius", "knn_grouping"], [k_and_radius_preds, knn_grouping_preds]
+        ["k_and_radius", "knn_grouping", "catboost_ensemble"],
+        [k_and_radius_preds, knn_grouping_preds, catboost_ensemble_preds],
     ):
         pred_lon = preds[:, 0]
         pred_lat = preds[:, 1]
