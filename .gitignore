@@ -107,6 +107,7 @@ target/
 *.snm
 *.nav
 *.out
+*.xwm
 
 # Some of the articles are not open source so not including them in the repo
 /references/articles/
