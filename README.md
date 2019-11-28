@@ -14,10 +14,6 @@ Project Organization
     │   ├── processed      <- The final, canonical data sets for modeling
     │   └── raw            <- The original, immutable data dump
     │
-    ├── docs               <- html docs for GitHub Pages
-    │
-    ├── sphinx             <- A default Sphinx project; see sphinx-doc.org for details
-    │
     ├── models             <- Trained and serialized models, model predictions, or model summaries
     │
     ├── notebooks          <- Jupyter notebooks and notebook-like objects (e.g. .py files meant to be
@@ -37,13 +33,10 @@ Project Organization
     │   │
     │   ├── data           <- Scripts to download or generate data
     │   │
-    │   ├── models         <- Scripts to train models and then use trained models to make
-    │   │                     predictions
-    │   │
-    │   └── visualization  <- Scripts to create exploratory and results oriented visualizations
-    │       └── visualize.py
+    │   └── models         <- Scripts to train models and then use trained models to make
+    │                         predictions
     │
-    └── tox.ini            <- tox file with settings for running tox; see tox.testrun.org
+    └── tox.ini            <- tox file with settings for black
 
 
 --------
