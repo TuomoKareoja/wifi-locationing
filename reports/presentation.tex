@@ -280,6 +280,12 @@ Distance75 =
 \frametitle{Conclusions}
 
 \begin{enumerate}
+    \item If we have have identifiers for unique locations (e.g. rooms and hallways) in the final
+    training data, then KNN model with grouping is the best choice. It is also smaller than normal KNN
+    model be an order or magnitude and so much faster with its predictions
+    \item If the final training data does not identifiers for unique locations or we get more
+    training data in the future that does not have these labels, then K and radius model is the best
+    choice
     \item Hard to model as the model has to be able to predict multiple related targets (
         e.g. longitude and latitude)
     \item Simple KNN model with some adjustment beats more complex models
