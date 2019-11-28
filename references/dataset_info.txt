@@ -29,6 +29,7 @@ building and floor identification, or regression, e.g. actual longitude and
 latitude estimation. It was created in 2013 by means of more than 20 different
 users and 25 Android devices. The database consists of 19937 training/reference
 records (trainingData.csv file) and 1111 validation/test records (validationData.csv file).
+Additionally there is a separate dataset used for IPIN2015 competition scoring.
 
 The 529 attributes contain the WiFi fingerprint, the coordinates where it was taken,
 and other useful information.
