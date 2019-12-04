@@ -159,10 +159,13 @@ IOT Analytics \\ % Your institution for the title page
 \begin{itemize}
     \item On top of WiFi signal strength also the phone model and OS very provided.
     These were not used in the models and dropped
+    \pause
     \item Missing signal for Wifi access-points was recoded from 100 to -110 so that
     it was smaller than the weakest actual signal in the dataset (-105)
+    \pause
     \item No scaling was done as all the models used where tree based
-    \item outlier dropping was tried, but this led to worse performance, so all
+    \pause
+    \item Outlier dropping was tried, but this led to worse performance, so all
     observations where kept in the analysis
 \end{itemize}
 
@@ -180,20 +183,26 @@ IOT Analytics \\ % Your institution for the title page
     in these locationing tasks and can predict multiple related targets
     (latitude, longitude, building, floor) all at once
     \begin{itemize}
+        \pause
         \item K and radius model uses 3 closest observations by similarity of
         WiFi signals, but beyond most nearest neighbor it only considers observations
         which are within certain radius limit of this distance
+        \pause
         \item KNN grouping model uses 2 closest observations by similarity of
         WiFi signals, but before training the models the WiFi signals strengths
         were grouped averaged for by room
     \end{itemize}
+    \pause
     \item Second option was to create multiple models to predict different metrics with
     interconnected CatBoost models that would capture the connections between
     target values
     \begin{enumerate}
+        \pause
         \item Separate model was created to predict each outcome from WiFi signals
+        \pause
         \item The predictions from previous models were added beside the Wifi signals
         and given to second layer of models that had the same goal as the first ones
+        \pause
         \item Lastly the just predictions from the second layer were given to
         a last layer of 4 models that made the final prediction
     \end{enumerate}
@@ -206,7 +215,7 @@ IOT Analytics \\ % Your institution for the title page
 
 Models were evaluated by a single scoring metrics named Distance 75 that combines all
 the 4 target values. This metric calculates the manhattan distance between prediction
-and actual values in 3D spaces and adds a additional penalty for getting the
+and actual values in 3D space and adds an additional penalty for getting the
 building wrong:
 
 \bigskip
@@ -280,16 +289,19 @@ Distance75 =
 \frametitle{Conclusions}
 
 \begin{enumerate}
+    \item Hard modelling task we must predict multiple related targets (e.g. longitude and latitude)
+    \pause
+    \item Simple KNN model with some adjustment beats more complex models
+    \pause
+    \item Signal processing does not seem to help (maybe should be done for each WiFi point separately?)
+    \pause
     \item If we have have identifiers for unique locations (e.g. rooms and hallways) in the final
     training data, then KNN model with grouping is the best choice. It is also smaller than normal KNN
-    model be an order or magnitude and so much faster with its predictions
-    \item If the final training data does not identifiers for unique locations or we get more
+    model (less points to consider) by an order or magnitude and so much faster with its predictions
+    \pause
+    \item If the final training data does not have identifiers for unique locations or we get more
     training data in the future that does not have these labels, then K and radius model is the best
     choice
-    \item Hard to model as the model has to be able to predict multiple related targets (
-        e.g. longitude and latitude)
-    \item Simple KNN model with some adjustment beats more complex models
-    \item Signal processing does not seem to help (maybe should be done for each OS separately)
 \end{enumerate}
 
 \end{frame}
